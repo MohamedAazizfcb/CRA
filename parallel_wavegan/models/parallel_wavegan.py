@@ -253,6 +253,7 @@ class ResidualParallelWaveGANDiscriminator(torch.nn.Module):
             x = f(x)
         return x
 
+
     def apply_weight_norm(self):
         """Apply weight normalization module from all of the layers."""
         def _apply_weight_norm(m):
@@ -261,6 +262,7 @@ class ResidualParallelWaveGANDiscriminator(torch.nn.Module):
                 logging.debug(f"Weight norm is applied to {m}.")
 
         self.apply(_apply_weight_norm)
+
 
     def remove_weight_norm(self):
         """Remove weight normalization module from all of the layers."""
