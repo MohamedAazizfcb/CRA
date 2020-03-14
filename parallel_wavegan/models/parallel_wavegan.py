@@ -66,12 +66,12 @@ class ParallelWaveGANDiscriminator(torch.nn.Module):
         self.conv_layers = torch.nn.ModuleList()
         conv_in_channels = in_channels
         for i in range(layers - 1):
-            if i == 0:
+            if i == 0:  #1st time only
                 dilation = 1
             else:
                 dilation = i if dilation_factor == 1 else dilation_factor ** i
-                conv_in_channels = conv_channels
-            padding = (kernel_size - 1) // 2 * dilation    #//divide and take floor
+                conv_in_channels = conv_channels    #conv_channels= previous conv output
+            padding = (kernel_size - 1) // 2 * dilation  
             conv_layer = [
                 Conv1d(conv_in_channels, conv_channels,
                        kernel_size=kernel_size, padding=padding,
@@ -92,6 +92,19 @@ class ParallelWaveGANDiscriminator(torch.nn.Module):
             self.apply_weight_norm()
 
 
+    def forward(self, x):
+        """Calculate forward propagation.
+
+        Args:
+            x (Tensor): Input noise signal (B, 1, T).
+
+        Returns:
+            Tensor: Output tensor (B, 1, T)
+
+        """
+        for f in self.conv_layers:  
+            x = f(x)    #apply conv on input signal
+        return x
 
 
     def apply_weight_norm(self):
@@ -100,5 +113,17 @@ class ParallelWaveGANDiscriminator(torch.nn.Module):
             if isinstance(m, torch.nn.Conv1d) or isinstance(m, torch.nn.Conv2d):
                 torch.nn.utils.weight_norm(m)
                 logging.debug(f"Weight norm is applied to {m}.")
-
+        # .apply built_in tourch (run func on all subfunc)
         self.apply(_apply_weight_norm)
+
+
+    def remove_weight_norm(self):
+        """Remove weight normalization module from all of the layers."""
+        def _remove_weight_norm(m):
+            try:
+                logging.debug(f"Weight norm is removed from {m}.")
+                torch.nn.utils.remove_weight_norm(m)
+            except ValueError:  # this module didn't have weight norm
+                return
+
+        self.apply(_remove_weight_norm)
