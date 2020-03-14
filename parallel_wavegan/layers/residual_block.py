@@ -2,8 +2,6 @@
 
 """Residual block module in WaveNet.
 
-This code is modified from https://github.com/r9y9/wavenet_vocoder.
-
 """
 
 import math
