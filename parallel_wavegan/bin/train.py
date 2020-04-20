@@ -673,108 +673,119 @@ def main():
         if args.distributed: 
             torch.distributed.init_process_group(backend="nccl", init_method="env://") #Use the NCCL backend for distributed GPU training (Rule of thumb)
                 #NCCL:since it currently provides the best distributed GPU training performance, especially for multiprocess single-node or multi-node distributed training
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
     # suppress logging for distributed training
-    if args.rank != 0:
-        sys.stdout = open(os.devnull, "w")
+    if args.rank != 0: #if process is not p0
+        sys.stdout = open(os.devnull, "w")#DEVNULL is Special value that can be used as the stdin, stdout or stderr argument to
 
     # set logger
-    if args.verbose > 1:
-        logging.basicConfig(
-            level=logging.DEBUG, stream=sys.stdout,
-            format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s")
-    elif args.verbose > 0:
-        logging.basicConfig(
-            level=logging.INFO, stream=sys.stdout,
-            format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s")
-    else:
-        logging.basicConfig(
-            level=logging.WARN, stream=sys.stdout,
-            format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s")
-        logging.warning("Skip DEBUG/INFO messages")
+    if args.verbose > 1: #if level of logging is heigher then 1
+        logging.basicConfig( #configure the logging
+            level=logging.DEBUG, stream=sys.stdout, #heigh logging level,detailed information, typically of interest only when diagnosing problems.
+            format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s") #format includes Time,module,line#,level,and message.
+    elif args.verbose > 0:#if level of logging is between 0,1
+        logging.basicConfig(#configure the logging
+            level=logging.INFO, stream=sys.stdout,#moderate logging level,Confirmation that things are working as expected.
+            format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s")#format includes Time,module,line#,level,and message.
+    else:#if level of logging is 0
+        logging.basicConfig(#configure the logging
+            level=logging.WARN, stream=sys.stdout,#low logging level,An indication that something unexpected happened, or indicative of some problem in the near future (e.g. ‘disk space low’).
+            format="%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s")#format includes Time,module,line#,level,and message.
+        logging.warning("Skip DEBUG/INFO messages")#tell the user that he will skip logging DEBUG/INFO messages by choosing this level.
 
     # check directory existence
-    if not os.path.exists(args.outdir):
+    if not os.path.exists(args.outdir): #directory to save checkpoints
         os.makedirs(args.outdir)
 
     # check arguments
-    if (args.train_feats_scp is not None and args.train_dumpdir is not None) or \
+    if (args.train_feats_scp is not None and args.train_dumpdir is not None) or \ 
             (args.train_feats_scp is None and args.train_dumpdir is None):
-        raise ValueError("Please specify either --train-dumpdir or --train-*-scp.")
+            # if the user chooses both training data files (examples) or
+            # the user doesnot choose any training data file
+        raise ValueError("Please specify either --train-dumpdir or --train-*-scp.") #raise an error to tell the user to choose one training file
     if (args.dev_feats_scp is not None and args.dev_dumpdir is not None) or \
             (args.dev_feats_scp is None and args.dev_dumpdir is None):
-        raise ValueError("Please specify either --dev-dumpdir or --dev-*-scp.")
+            # if the user chooses both validatation data files (examples) or
+            # the user doesnot choose any validatation data file
+        raise ValueError("Please specify either --dev-dumpdir or --dev-*-scp.") #raise an error to tell the user to choose one validation data file
 
-    # load and save config
-    with open(args.config) as f:
-        config = yaml.load(f, Loader=yaml.Loader)
-    config.update(vars(args))
-    config["version"] = parallel_wavegan.__version__  # add version info
-    with open(os.path.join(args.outdir, "config.yml"), "w") as f:
-        yaml.dump(config, f, Dumper=yaml.Dumper)
+    # load config
+    with open(args.config) as f:#open configuration file (yaml format)
+        config = yaml.load(f, Loader=yaml.Loader) #load configuration file (yaml format to python object)
+    # update config
+    config.update(vars(args))#update arguments in configuration file
+    config["version"] = parallel_wavegan.__version__  # add parallel wavegan version info
+    # save config
+    with open(os.path.join(args.outdir, "config.yml"), "w") as f:#open outdir/config.yml
+        yaml.dump(config, f, Dumper=yaml.Dumper) #dump function accepts a Python object and produces a YAML document.
+    # add config info to the high level logger.
     for key, value in config.items():
         logging.info(f"{key} = {value}")
 
     # get dataset
-    if config["remove_short_samples"]:
+    if config["remove_short_samples"]:#if configuration tells to remove short samples from training.
         mel_length_threshold = config["batch_max_steps"] // config["hop_size"] + \
-            2 * config["generator_params"].get("aux_context_window", 0)
+            2 * config["generator_params"].get("aux_context_window", 0)#th of length = floor(batch_max_steps/hop_size) + 2 * (generator_params.aux_context_window)
     else:
-        mel_length_threshold = None
-    if args.train_wav_scp is None or args.dev_wav_scp is None:
-        if config["format"] == "hdf5":
-            audio_query, mel_query = "*.h5", "*.h5"
-            audio_load_fn = lambda x: read_hdf5(x, "wave")  # NOQA
-            mel_load_fn = lambda x: read_hdf5(x, "feats")  # NOQA
-        elif config["format"] == "npy":
-            audio_query, mel_query = "*-wave.npy", "*-feats.npy"
-            audio_load_fn = np.load
-            mel_load_fn = np.load
-        else:
-            raise ValueError("support only hdf5 or npy format.")
-    if args.train_dumpdir is not None:
-        train_dataset = AudioMelDataset(
-            root_dir=args.train_dumpdir,
-            audio_query=audio_query,
-            mel_query=mel_query,
-            audio_load_fn=audio_load_fn,
-            mel_load_fn=mel_load_fn,
-            mel_length_threshold=mel_length_threshold,
-            allow_cache=config.get("allow_cache", False),  # keep compatibility
+        mel_length_threshold = None # No th.
+    if args.train_wav_scp is None or args.dev_wav_scp is None: #if at least one of training or evaluating datasets = None
+        if config["format"] == "hdf5":# format of data = hdf5
+            audio_query, mel_query = "*.h5", "*.h5" # audio and text queries = "...".h5
+            #lambda example:
+            #x = lambda a, b: a * b
+            #x(5, 6)-->x(a=5,b=6)=a*b=5*6=30
+            audio_load_fn = lambda x: read_hdf5(x, "wave")  # The function to load data,NOQA
+            mel_load_fn = lambda x: read_hdf5(x, "feats")  # The function to load data,NOQA
+        elif config["format"] == "npy":# format of data = npy
+            audio_query, mel_query = "*-wave.npy", "*-feats.npy" #audio query = "..."-wave.npy and text query = "..."-feats.h5
+            audio_load_fn = np.load#The function to load data.
+            mel_load_fn = np.load#The function to load data.
+        else:#if any other data format
+            raise ValueError("support only hdf5 or npy format.") #raise error to tell the user the data format is not supported.
+
+    if args.train_dumpdir is not None: # if training ds is not None
+        train_dataset = AudioMelDataset( # define the training dataset
+            root_dir=args.train_dumpdir,#the directory of ds.
+            audio_query=audio_query,#audio query according to format above.
+            mel_query=mel_query,#mel query according to format above.
+            audio_load_fn=audio_load_fn,#load the function that loads the audio data according to format above.
+            mel_load_fn=mel_load_fn,#load the function that loads the mel data according to format above.
+            mel_length_threshold=mel_length_threshold,#th to remove short samples -calculated above-.
+            allow_cache=config.get("allow_cache", False),  # keep compatibility.
         )
-    else:
-        train_dataset = AudioMelSCPDataset(
+    else:# if training ds is None
+        train_dataset = AudioMelSCPDataset(# define the training dataset
             wav_scp=args.train_wav_scp,
             feats_scp=args.train_feats_scp,
-            segments=args.train_segments,
-            mel_length_threshold=mel_length_threshold,
+            segments=args.train_segments, #segments of dataset
+            mel_length_threshold=mel_length_threshold,#th to remove short samples -calculated above-.
             allow_cache=config.get("allow_cache", False),  # keep compatibility
         )
-    logging.info(f"The number of training files = {len(train_dataset)}.")
-    if args.dev_dumpdir is not None:
-        dev_dataset = AudioMelDataset(
-            root_dir=args.dev_dumpdir,
-            audio_query=audio_query,
-            mel_query=mel_query,
-            audio_load_fn=audio_load_fn,
-            mel_load_fn=mel_load_fn,
-            mel_length_threshold=mel_length_threshold,
+    logging.info(f"The number of training files = {len(train_dataset)}.") # add length of trainning data set to the logger.
+    if args.dev_dumpdir is not None: #if evaluating ds is not None
+        dev_dataset = AudioMelDataset( # define the evaluating dataset
+            root_dir=args.dev_dumpdir,#the directory of ds.
+            audio_query=audio_query,#audio query according to format above.
+            mel_query=mel_query,#mel query according to format above.
+            audio_load_fn=audio_load_fn,#load the function that loads the audio data according to format above.
+            mel_load_fn=mel_load_fn,#load the function that loads the mel data according to format above.
+            mel_length_threshold=mel_length_threshold,#th to remove short samples -calculated above-.
             allow_cache=config.get("allow_cache", False),  # keep compatibility
         )
-    else:
+    else:# if evaluating ds is None
         dev_dataset = AudioMelSCPDataset(
             wav_scp=args.dev_wav_scp,
             feats_scp=args.dev_feats_scp,
-            segments=args.dev_segments,
-            mel_length_threshold=mel_length_threshold,
+            segments=args.dev_segments,#segments of dataset
+            mel_length_threshold=mel_length_threshold,#th to remove short samples -calculated above-.
             allow_cache=config.get("allow_cache", False),  # keep compatibility
         )
-    logging.info(f"The number of development files = {len(dev_dataset)}.")
+    logging.info(f"The number of development files = {len(dev_dataset)}.") # add length of evaluating data set to the logger.
     dataset = {
         "train": train_dataset,
         "dev": dev_dataset,
-    }
-
+    } #define the whole dataset used which is divided into training and evaluating datasets
+-----------------------------------------------------------------------------------------------------------------------------------
     # get data loader
     collater = Collater(
         batch_max_steps=config["batch_max_steps"],
