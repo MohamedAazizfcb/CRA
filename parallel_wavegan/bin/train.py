@@ -785,7 +785,6 @@ def main():
         "train": train_dataset,
         "dev": dev_dataset,
     } #define the whole dataset used which is divided into training and evaluating datasets
------------------------------------------------------------------------------------------------------------------------------------
     # get data loader
     collater = Collater(
         batch_max_steps=config["batch_max_steps"],
