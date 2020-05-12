@@ -175,7 +175,7 @@ def main():
         else:
             raise ValueError('support only hdf5 or npy format.')
 
-if if __name__ == "__main__":
+if __name__ == "__main__":
     main()
     
 
