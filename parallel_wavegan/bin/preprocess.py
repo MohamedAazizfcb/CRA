@@ -2,14 +2,16 @@ import argparse
 import logging
 import os
 
+import kaldiio
 import librosa
 import numpy as np
 import yaml
 import soundfile as sf
 
+from joblib import delayed
+from joblib import Parallel
 from tqdm import tqdm
 from parallel_wavegan.datasets import AudioDataset
-from parallel_wavegan.datasets import AudioSCPDataset
 from parallel_wavegan.utils import write_hdf5
 
 
@@ -30,7 +32,7 @@ def logmelfilterbank(audio,           # audio signal
 
 
     # get short-time fourier transform of audio signal
-    x_stft = librosa.stft(audio,n_ftt=fft_size,hop_length=hop_size,
+    x_stft = librosa.stft(audio,n_fft=fft_size,hop_length=hop_size,
                             win_length=win_length,window=window,pad_mode="reflect")
 
     # get amplitude spectrogram
@@ -57,6 +59,8 @@ def main():
                         help="directory to dump feature files.")
     parser.add_argument("--config",type=str,required=True,
                         help="yaml format configuration file.")
+    parser.add_argument("--n_jobs", type=int, default=16,
+                        help="number of parallel jobs. (default=16)")
     parser.add_argument("--verbose",type=int,default=1,
                         help="logging level. higher is more logging.")
     args = parser.parse_args()
@@ -77,7 +81,7 @@ def main():
 
     # loading config
     with open(args.config) as f:
-        config = yaml.load(f, Loader=yaml.load)
+        config = yaml.load(f, Loader=yaml.Loader)
     config.update(vars(args))
 
     # checking arguments
@@ -86,104 +90,85 @@ def main():
         raise ValueError("Please specify either --wav_scp or --rootdir")
 
 
-    # getting dataset
-    if args.rootdir is not None:
-        dataset = AudioDataset(
-            args.rootdir,"*.wav",
-            audio_load_fn=sf.read,
-            return_utt_id=True,
-        )
-
+   # get dataset
+    if args.wav_scp is not None:
+        dataset = kaldiio.ReadHelper(f"scp:{args.wav_scp}",
+                                     segments=args.segments)
     else:
-        dataset = AudioSCPDataset(
-            args.wav_scp,
-            segments=args.segments,
-            return_utt_id=True,
-            return_sampling_rate=True,
-        )
-
+        dataset = AudioDataset(args.rootdir, "*.wav",
+                               audio_load_fn=sf.read,
+                               return_filename=True)
 
 
     # check directory existence
     if not os.path.exists(args.dumpdir):
         os.makedirs(args.dumpdir, exist_ok=True)
 
-    # process each data
-    for utt_id,(audio,fs) in tqdm(dataset):
+    # define function for parallel processing
+    def _process_single_file(data):
+        # parse inputs
+        if args.wav_scp is not None:
+            utt_id, (fs, audio) = data
+            audio = audio.astype(np.float32)
+            audio /= (1 << (16 - 1))  # assume that wav is PCM 16 bit
+        else:
+            name, (audio, fs) = data
+            utt_id = os.path.basename(name).replace(".wav", "")
 
-        # checking
-        assert len(audio.shape) == 1, f"{utt_id} is multichannel signal."
-        assert np.abs(audio).max() <= 1.0, f"{utt_id} is different from 16 bit PCM."
-        assert fs == config['sampling_rate'], f"{utt_id} has different sampling rate."
+        # check
+        assert len(audio.shape) == 1, \
+            f"{utt_id} seems to be multi-channel signal."
+        assert fs == config["sampling_rate"], \
+            f"{utt_id} seems to have a different sampling rate."
+        assert np.abs(audio).max() <= 1.0, \
+            f"{utt_id} seems to be different from 16 bit PCM."
 
         # trim silence
-        if config['trim_silence]']:
-            audio,_ = librosa.effects.trim(audio,
-                                           top_db=config['trim_threshold_in_db'],
-                                           frame_length=config['trim_frame_size'],
-                                           hop_length=config['trim_hop_size'])
+        if config["trim_silence"]:
+            audio, _ = librosa.effects.trim(audio,
+                                            top_db=config["trim_threshold_in_db"],
+                                            frame_length=config["trim_frame_size"],
+                                            hop_length=config["trim_hop_size"])
 
-        if "sampling_rate_for_feats" not in config:
-            x = audio
-            sampling_rate = config['sampling_rate']
-            hop_size = config['hop_size']
+        # extract feature
+        mel = logmelfilterbank(audio, fs,
+                               fft_size=config["fft_size"],
+                               hop_size=config["hop_size"],
+                               win_length=config["win_length"],
+                               window=config["window"],
+                               num_mels=config["num_mels"],
+                               fmin=config["fmin"],
+                               fmax=config["fmax"])
 
-        else: # here we can train model with different sampling rate for feature and audio
-            x = librosa.resample(audio, fs, config['sampling_rate_for_feats'])
-            sampling_rate = config['sampling_rate_for_feats']
-            assert config['hop_size'] * config['sampling_rate_for_feats'] % fs == 0, \
-                "hop_size must be int value. please check sampling_rate_for_feats is correct."
-            hop_size = config['hop_size'] * config['samping_rate_for_feats'] // fs
+        # make sure the audio length and feature length are matched
+        audio = np.pad(audio, (0, config["fft_size"]), mode="edge")
+        audio = audio[:len(mel) * config["hop_size"]]
+        assert len(mel) * config["hop_size"] == len(audio)
 
-        # extracting feature
-        mel = logmelfilterbank(x,
-                               sampling_rate = sampling_rate,
-                               hop_size=hop_size,
-                               fft_size=config['fft_size'],
-                               win_length=config['win_length'],
-                               window=config['window'],
-                               num_mels=config['num_mels'],
-                               fmax=config['fmin'],
-                               fmax=config['fmax'])
+        # apply global gain
+        if config["global_gain_scale"] > 0.0:
+            audio *= config["global_gain_scale"]
+            if np.abs(audio).max() > 1.0:
+                logging.warn(f"{utt_id} causes clipping. "
+                             f"it is better to re-consider global gain scale.")
+                return
 
-        # making sure the audio length and feature length are matched
-        audio = np.pad(audio, (0, config['fft_size']), mode="edge")
-        audio = audio[:len(mel) * config['hop_size']]
-        assert len(mel) * config['hop_size'] == len(audio)
-
-
-        # apply global gain 
-        if config['global_gain_scale'] > 0.0:
-            audio *= config['global_gain_scale']
-
-        if np.abs(audio).max() >= 1.0:
-            logging.warn(f"{utt_id} causes clipping. "
-                         f"it is better to reconsider global gain scale.")
-
-            continue
-                    
-        if config['format'] == "hdf5":
-            write_hdf5(os.path.join(args.dumpdir,f"{utt_id}.h5"), "wave", audio.astype(np.float32))
+        # save
+        if config["format"] == "hdf5":
+            write_hdf5(os.path.join(args.dumpdir, f"{utt_id}.h5"), "wave", audio.astype(np.float32))
             write_hdf5(os.path.join(args.dumpdir, f"{utt_id}.h5"), "feats", mel.astype(np.float32))
-
-        elif config['format'] == "npy":
+        elif config["format"] == "npy":
             np.save(os.path.join(args.dumpdir, f"{utt_id}-wave.npy"),
                     audio.astype(np.float32), allow_pickle=False)
             np.save(os.path.join(args.dumpdir, f"{utt_id}-feats.npy"),
                     mel.astype(np.float32), allow_pickle=False)
-
         else:
-            raise ValueError('support only hdf5 or npy format.')
+            raise ValueError("support only hdf5 or npy format.")
+
+    # process in parallel
+    Parallel(n_jobs=args.n_jobs, verbose=args.verbose)(
+        [delayed(_process_single_file)(data) for data in tqdm(dataset)])
+
 
 if __name__ == "__main__":
     main()
-    
-
-
-
-
-    
-    
-
-
-
