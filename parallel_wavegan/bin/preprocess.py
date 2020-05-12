@@ -11,6 +11,10 @@ from tqdm import tqdm
 from parallel_wavegan.datasets import AudioDataset
 from parallel_wavegan.datasets import AudioSCPDataset
 from parallel_wavegan.utils import write_hdf5
+
+
+
+
 # calc log-Mel filterbank feature
 def logmelfilterbank(audio,           # audio signal
                      sampling_rate,   # sampling_rate
@@ -38,9 +42,9 @@ def logmelfilterbank(audio,           # audio signal
     mel_basis = librosa.filters.mel(sampling_rate,fft_size,num_mels,fmin,fmax)
     
 
-    return np.log10(np.maximum(eps,np.dot(spc,mel_basis.T))
+    return np.log10(np.maximum(eps,np.dot(spc,mel_basis.T)))
     
-
+    
 def main():
     parser = argparse.ArgumentParser(description="Preprocess audio and extract features (see detail in parallel_wavegan/bin/preprocess.py ")
     parser.add_argument("--wav-scp","--scp",default=None,type=str,
