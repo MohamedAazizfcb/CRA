@@ -26,11 +26,11 @@ def logmelfilterbank(audio,           # audio signal
 
 
     # get short-time fourier transform of audio signal
-    sig_stft = librosa.stft(audio,n_ftt=fft_size,hop_length=hop_size,
+    x_stft = librosa.stft(audio,n_ftt=fft_size,hop_length=hop_size,
                             win_length=win_length,window=window,pad_mode="reflect")
 
     # get amplitude spectrogram
-    spect = np.abs(sig_stft).T 
+    spc = np.abs(x_stft).T 
 
     # get mel basis
     fmin = 0 if fmin is None else fmin
@@ -38,7 +38,7 @@ def logmelfilterbank(audio,           # audio signal
     mel_basis = librosa.filters.mel(sampling_rate,fft_size,num_mels,fmin,fmax)
     
 
-    return np.log10(np.maximum(eps,np.dot(spect,mel_basis.T))
+    return np.log10(np.maximum(eps,np.dot(spc,mel_basis.T))
     
 
 def main():
