@@ -11,6 +11,10 @@ from tqdm import tqdm
 from parallel_wavegan.datasets import AudioDataset
 from parallel_wavegan.datasets import AudioSCPDataset
 from parallel_wavegan.utils import write_hdf5
+
+
+
+
 # calc log-Mel filterbank feature
 def logmelfilterbank(audio,           # audio signal
                      sampling_rate,   # sampling_rate
@@ -26,11 +30,11 @@ def logmelfilterbank(audio,           # audio signal
 
 
     # get short-time fourier transform of audio signal
-    sig_stft = librosa.stft(audio,n_ftt=fft_size,hop_length=hop_size,
+    x_stft = librosa.stft(audio,n_ftt=fft_size,hop_length=hop_size,
                             win_length=win_length,window=window,pad_mode="reflect")
 
     # get amplitude spectrogram
-    spect = np.abs(sig_stft).T 
+    spc = np.abs(x_stft).T 
 
     # get mel basis
     fmin = 0 if fmin is None else fmin
@@ -38,9 +42,9 @@ def logmelfilterbank(audio,           # audio signal
     mel_basis = librosa.filters.mel(sampling_rate,fft_size,num_mels,fmin,fmax)
     
 
-    return np.log10(np.maximum(eps,np.dot(spect,mel_basis.T))
+    return np.log10(np.maximum(eps,np.dot(spc,mel_basis.T)))
     
-
+    
 def main():
     parser = argparse.ArgumentParser(description="Preprocess audio and extract features (see detail in parallel_wavegan/bin/preprocess.py ")
     parser.add_argument("--wav-scp","--scp",default=None,type=str,
@@ -171,7 +175,7 @@ def main():
         else:
             raise ValueError('support only hdf5 or npy format.')
 
-if if __name__ == "__main__":
+if __name__ == "__main__":
     main()
     
 
