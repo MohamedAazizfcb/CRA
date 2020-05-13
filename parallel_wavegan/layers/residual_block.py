@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """Residual block module in WaveNet.
 

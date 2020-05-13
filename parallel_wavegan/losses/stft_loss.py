@@ -30,13 +30,13 @@ class SpectralConvergengeLoss(torch.nn.Module):
         super(SpectralConvergengeLoss, self).__init__()
 
         def forward(self, x_mag, y_mag):  # Compute forward propagation
-        """
-        Arguments:
-            x_mag (Tensor): Magnitude spectrogram of predicted signal (B, #frames, #freq_bins).
-            y_mag (Tensor): Magnitude spectrogram of ground truth signal (B, #frames, #freq_bins).
-        """
-        # returns Spectral convergence loss value --> (Tensor).
-        return torch.norm(y_mag - x_mag, p="fro") / torch.norm(y_mag, p="fro")
+            """
+            Arguments:
+                x_mag (Tensor): Magnitude spectrogram of predicted signal (B, #frames, #freq_bins).
+                y_mag (Tensor): Magnitude spectrogram of ground truth signal (B, #frames, #freq_bins).
+            """
+            # returns Spectral convergence loss value --> (Tensor).
+            return torch.norm(y_mag - x_mag, p="fro") / torch.norm(y_mag, p="fro")
 
 
 class LogSTFTMagnitudeLoss(torch.nn.Module):
@@ -67,7 +67,7 @@ class STFTLoss(torch.nn.Module):
         self.spectral_convergenge_loss = SpectralConvergengeLoss()
         self.log_stft_magnitude_loss = LogSTFTMagnitudeLoss()
 
-    def forward(self, x, y)  # Compute forward propagation
+    def forward(self, x, y):  # Compute forward propagation
         """
         Arguments:
             x (Tensor): Predicted signal (B, T).

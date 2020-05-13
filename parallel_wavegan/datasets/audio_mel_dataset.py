@@ -1,3 +1,4 @@
+
 """Dataset modules."""
 
 import logging
@@ -28,6 +29,7 @@ class AudioMelDataset(Dataset):
                  allow_cache=False,
                  ):
         """Initialize dataset.
+
         Args:
             root_dir (str): Root directory including dumped files.
             audio_query (str): Query to find audio files in root_dir.
@@ -38,6 +40,7 @@ class AudioMelDataset(Dataset):
             mel_length_threshold (int): Threshold to remove short feature files.
             return_utt_id (bool): Whether to return the utterance id with arrays.
             allow_cache (bool): Whether to allow cache of the loaded files.
+
         """
         # find all of audio and mel files
         audio_files = sorted(find_files(root_dir, audio_query))
@@ -84,12 +87,15 @@ class AudioMelDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get specified idx items.
+
         Args:
             idx (int): Index of the item.
+
         Returns:
             str: Utterance id (only in return_utt_id = True).
             ndarray: Audio signal (T,).
             ndarray: Feature (T', C).
+
         """
         if self.allow_cache and len(self.caches[idx]) != 0:
             return self.caches[idx]
@@ -110,8 +116,10 @@ class AudioMelDataset(Dataset):
 
     def __len__(self):
         """Return dataset length.
+
         Returns:
             int: The length of dataset.
+
         """
         return len(self.audio_files)
 
@@ -128,6 +136,7 @@ class AudioDataset(Dataset):
                  allow_cache=False,
                  ):
         """Initialize dataset.
+
         Args:
             root_dir (str): Root directory including dumped files.
             audio_query (str): Query to find audio files in root_dir.
@@ -135,6 +144,7 @@ class AudioDataset(Dataset):
             audio_length_threshold (int): Threshold to remove short audio files.
             return_utt_id (bool): Whether to return the utterance id with arrays.
             allow_cache (bool): Whether to allow cache of the loaded files.
+
         """
         # find all of audio and mel files
         audio_files = sorted(find_files(root_dir, audio_query))
@@ -144,7 +154,7 @@ class AudioDataset(Dataset):
             audio_lengths = [audio_load_fn(f).shape[0] for f in audio_files]
             idxs = [idx for idx in range(len(audio_files)) if audio_lengths[idx] > audio_length_threshold]
             if len(audio_files) != len(idxs):
-                logging.waning(f"some files are filtered by audio length threshold "
+                logging.warning(f"some files are filtered by audio length threshold "
                                f"({len(audio_files)} -> {len(idxs)}).")
             audio_files = [audio_files[idx] for idx in idxs]
 
@@ -167,11 +177,14 @@ class AudioDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get specified idx items.
+
         Args:
             idx (int): Index of the item.
+
         Returns:
             str: Utterance id (only in return_utt_id = True).
             ndarray: Audio (T,).
+
         """
         if self.allow_cache and len(self.caches[idx]) != 0:
             return self.caches[idx]
@@ -191,8 +204,10 @@ class AudioDataset(Dataset):
 
     def __len__(self):
         """Return dataset length.
+
         Returns:
             int: The length of dataset.
+
         """
         return len(self.audio_files)
 
@@ -209,6 +224,7 @@ class MelDataset(Dataset):
                  allow_cache=False,
                  ):
         """Initialize dataset.
+
         Args:
             root_dir (str): Root directory including dumped files.
             mel_query (str): Query to find feature files in root_dir.
@@ -216,6 +232,7 @@ class MelDataset(Dataset):
             mel_length_threshold (int): Threshold to remove short feature files.
             return_utt_id (bool): Whether to return the utterance id with arrays.
             allow_cache (bool): Whether to allow cache of the loaded files.
+
         """
         # find all of the mel files
         mel_files = sorted(find_files(root_dir, mel_query))
@@ -249,11 +266,14 @@ class MelDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get specified idx items.
+
         Args:
             idx (int): Index of the item.
+
         Returns:
             str: Utterance id (only in return_utt_id = True).
             ndarray: Feature (T', C).
+
         """
         if self.allow_cache and len(self.caches[idx]) != 0:
             return self.caches[idx]
@@ -273,7 +293,9 @@ class MelDataset(Dataset):
 
     def __len__(self):
         """Return dataset length.
+
         Returns:
             int: The length of dataset.
+
         """
         return len(self.mel_files)

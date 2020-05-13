@@ -28,7 +28,7 @@ checkpoint="" # checkpoint path to be used for decoding
               # (e.g. <path>/<to>/checkpoint-400000steps.pkl)
 
 # shellcheck disable=SC1091
-. parse_options.sh || exit 1;
+. utils/parse_options.sh || exit 1;
 
 train_set="train_nodev" # name of training data directory
 dev_set="dev"           # name of development data direcotry
@@ -52,50 +52,50 @@ fi
 
 stats_ext=$(grep -q "hdf5" <(yq ".format" "${conf}") && echo "h5" || echo "npy")
 if [ "${stage}" -le 1 ] && [ "${stop_stage}" -ge 1 ]; then
-    # echo "Stage 1: Feature extraction"
-    # # extract raw features
-    # pids=()
-    # for name in "${train_set}" "${dev_set}" "${eval_set}"; do
-    # (
-    #     [ ! -e "${dumpdir}/${name}/raw" ] && mkdir -p "${dumpdir}/${name}/raw"
-    #     echo "Feature extraction start. See the progress via ${dumpdir}/${name}/raw/preprocessing.log."
-    #     ${train_cmd} --num-threads "${n_jobs}" "${dumpdir}/${name}/raw/preprocessing.log" \
-    #         parallel-wavegan-preprocess \
-    #             --config "${conf}" \
-    #             --scp "data/${name}/wav.scp" \
-    #             --dumpdir "${dumpdir}/${name}/raw" \
-    #             #--n_jobs "${n_jobs}" \
-    #             --verbose "${verbose}"
-    #     echo "Successfully finished feature extraction of ${name} set."
-    # ) &
-    # pids+=($!)
-    # done
-    # i=0; for pid in "${pids[@]}"; do wait "${pid}" || ((++i)); done
-    # [ "${i}" -gt 0 ] && echo "$0: ${i} background jobs are failed." && exit 1;
-    # echo "Successfully finished feature extraction."
+    echo "Stage 1: Feature extraction"
+    # extract raw features
+    pids=()
+    for name in "${train_set}" "${dev_set}" "${eval_set}"; do
+    (
+        [ ! -e "${dumpdir}/${name}/raw" ] && mkdir -p "${dumpdir}/${name}/raw"
+        echo "Feature extraction start. See the progress via ${dumpdir}/${name}/raw/preprocessing.*.log."
+        utils/make_subset_data.sh "data/${name}" "${n_jobs}" "${dumpdir}/${name}/raw"
+        ${train_cmd} JOB=1:${n_jobs} "${dumpdir}/${name}/raw/preprocessing.JOB.log" \
+            parallel-wavegan-preprocess \
+                --config "${conf}" \
+                --scp "data/${name}/raw/wav.JOB.scp" \
+                --dumpdir "${dumpdir}/${name}/raw/dump.JOB" \
+                --verbose "${verbose}"
+        echo "Successfully finished feature extraction of ${name} set."
+    ) &
+    pids+=($!)
+    done
+    i=0; for pid in "${pids[@]}"; do wait "${pid}" || ((++i)); done
+    [ "${i}" -gt 0 ] && echo "$0: ${i} background jobs are failed." && exit 1;
+    echo "Successfully finished feature extraction."
 
-    # calculate statistics for normalization
-    # echo "Statistics computation start. See the progress via ${dumpdir}/${train_set}/compute_statistics.log."
-    # ${train_cmd} "${dumpdir}/${train_set}/compute_statistics.log" \
-    #     parallel-wavegan-compute-statistics \
-    #         --config "${conf}" \
-    #         --rootdir "${dumpdir}/${train_set}/raw" \
-    #         --dumpdir "${dumpdir}/${train_set}" \
-    #         --verbose "${verbose}"
-    # echo "Successfully finished calculation of statistics."
+    #calculate statistics for normalization
+    echo "Statistics computation start. See the progress via ${dumpdir}/${train_set}/compute_statistics.log."
+    ${train_cmd} "${dumpdir}/${train_set}/compute_statistics.log" \
+        parallel-wavegan-compute-statistics \
+            --config "${conf}" \
+            --rootdir "${dumpdir}/${train_set}/raw" \
+            --dumpdir "${dumpdir}/${train_set}" \
+            --verbose "${verbose}"
+    echo "Successfully finished calculation of statistics."
 
     # normalize and dump them
     pids=()
     for name in "${train_set}" "${dev_set}" "${eval_set}"; do
     (
         [ ! -e "${dumpdir}/${name}/norm" ] && mkdir -p "${dumpdir}/${name}/norm"
-        echo "Nomalization start. See the progress via ${dumpdir}/${name}/norm/normalize.log."
-        ${train_cmd} --num-threads "${n_jobs}" "${dumpdir}/${name}/norm/normalize.log" \
+        echo "Nomalization start. See the progress via ${dumpdir}/${name}/norm/normalize.*.log."
+        ${train_cmd} JOB=1:${n_jobs} "${dumpdir}/${name}/norm/normalize.JOB.log" \
             parallel-wavegan-normalize \
                 --config "${conf}" \
-                --stats "${dumpdir}/${train_set}/stats.h5" \
-                --rootdir "${dumpdir}/${name}/raw" \
-                --dumpdir "${dumpdir}/${name}/norm" \
+                --stats "${dumpdir}/${train_set}/stats.${stats_ext}" \
+                --rootdir "${dumpdir}/${name}/raw/dump.JOB" \
+                --dumpdir "${dumpdir}/${name}/norm/dump.JOB" \
                 --verbose "${verbose}"
         echo "Successfully finished normalization of ${name} set."
     ) &
