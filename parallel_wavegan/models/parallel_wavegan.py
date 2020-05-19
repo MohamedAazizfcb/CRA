@@ -76,21 +76,10 @@ class ParallelWaveGANGenerator(torch.nn.Module):
 
             upsample_params.update({
                 "use_causal_conv": use_causal_conv,
+                "aux_channels": aux_channels,
+                "aux_context_window": aux_context_window,
             })
-            if upsample_net == "MelGANGenerator":
-                assert aux_context_window == 0
-                upsample_params.update({
-                    "use_weight_norm": False,  # not to apply twice
-                    "use_final_nonlinear_activation": False,
-                })
-                self.upsample_net = getattr(models, upsample_net)(**upsample_params)
-            else:
-                if upsample_net == "ConvInUpsampleNetwork":
-                    upsample_params.update({
-                        "aux_channels": aux_channels,
-                        "aux_context_window": aux_context_window,
-                    })
-                self.upsample_net = getattr(upsample, upsample_net)(**upsample_params)
+            self.upsample_net = getattr(upsample, upsample_net)(**upsample_params)
         else:
             self.upsample_net = None
 
@@ -195,6 +184,8 @@ class ParallelWaveGANGenerator(torch.nn.Module):
 
 class ParallelWaveGANDiscriminator(torch.nn.Module):
     """Parallel WaveGAN Discriminator module."""
+    # TODO DALIA
+
 
     def __init__(self,
                  in_channels=1,

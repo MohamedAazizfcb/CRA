@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+
+# Copyright 2019 Tomoki Hayashi
+#  MIT License (https://opensource.org/licenses/MIT)
+
 """Dataset modules based on kaldi-style scp files."""
 
 import logging
@@ -24,6 +29,7 @@ class AudioMelSCPDataset(Dataset):
                  allow_cache=False,
                  ):
         """Initialize dataset.
+
         Args:
             wav_scp (str): Kaldi-style wav.scp file.
             feats_scp (str): Kaldi-style fests.scp file.
@@ -33,6 +39,7 @@ class AudioMelSCPDataset(Dataset):
             return_utt_id (bool): Whether to return utterance id.
             return_sampling_rate (bool): Wheter to return sampling rate.
             allow_cache (bool): Whether to allow cache of the loaded files.
+
         """
         # load scp as lazy dict
         audio_loader = kaldiio.load_scp(wav_scp, segments=segments)
@@ -77,12 +84,15 @@ class AudioMelSCPDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get specified idx items.
+
         Args:
             idx (int): Index of the item.
+
         Returns:
             str: Utterance id (only in return_utt_id = True).
             ndarray or tuple: Audio signal (T,) or (w/ sampling rate if return_sampling_rate = True).
             ndarray: Feature (T', C).
+
         """
         if self.allow_cache and len(self.caches[idx]) != 0:
             return self.caches[idx]
@@ -110,8 +120,10 @@ class AudioMelSCPDataset(Dataset):
 
     def __len__(self):
         """Return dataset length.
+
         Returns:
             int: The length of dataset.
+
         """
         return len(self.utt_ids)
 
@@ -128,6 +140,7 @@ class AudioSCPDataset(Dataset):
                  allow_cache=False,
                  ):
         """Initialize dataset.
+
         Args:
             wav_scp (str): Kaldi-style wav.scp file.
             segments (str): Kaldi-style segments file.
@@ -135,6 +148,7 @@ class AudioSCPDataset(Dataset):
             return_utt_id (bool): Whether to return utterance id.
             return_sampling_rate (bool): Wheter to return sampling rate.
             allow_cache (bool): Whether to allow cache of the loaded files.
+
         """
         # load scp as lazy dict
         audio_loader = kaldiio.load_scp(wav_scp, segments=segments)
@@ -163,11 +177,14 @@ class AudioSCPDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get specified idx items.
+
         Args:
             idx (int): Index of the item.
+
         Returns:
             str: Utterance id (only in return_utt_id = True).
             ndarray or tuple: Audio signal (T,) or (w/ sampling rate if return_sampling_rate = True).
+
         """
         if self.allow_cache and len(self.caches[idx]) != 0:
             return self.caches[idx]
@@ -194,8 +211,10 @@ class AudioSCPDataset(Dataset):
 
     def __len__(self):
         """Return dataset length.
+
         Returns:
             int: The length of dataset.
+
         """
         return len(self.utt_ids)
 
@@ -210,11 +229,13 @@ class MelSCPDataset(Dataset):
                  allow_cache=False,
                  ):
         """Initialize dataset.
+
         Args:
             feats_scp (str): Kaldi-style fests.scp file.
             mel_length_threshold (int): Threshold to remove short feature files.
             return_utt_id (bool): Whether to return utterance id.
             allow_cache (bool): Whether to allow cache of the loaded files.
+
         """
         # load scp as lazy dict
         mel_loader = kaldiio.load_scp(feats_scp)
@@ -242,11 +263,14 @@ class MelSCPDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get specified idx items.
+
         Args:
             idx (int): Index of the item.
+
         Returns:
             str: Utterance id (only in return_utt_id = True).
             ndarray: Feature (T', C).
+
         """
         if self.allow_cache and len(self.caches[idx]) != 0:
             return self.caches[idx]
@@ -266,7 +290,9 @@ class MelSCPDataset(Dataset):
 
     def __len__(self):
         """Return dataset length.
+
         Returns:
             int: The length of dataset.
+
         """
         return len(self.utt_ids)

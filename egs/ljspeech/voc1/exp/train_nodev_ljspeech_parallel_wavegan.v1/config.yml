@@ -18,10 +18,10 @@ discriminator_params:
   nonlinear_activation_params: {negative_slope: 0.2}
   out_channels: 1
   use_weight_norm: true
-discriminator_scheduler_params: {gamma: 0.5, step_size: 250}
+discriminator_scheduler_params: {gamma: 0.5, step_size: 100}
 discriminator_train_start_steps: 100
 distributed: false
-eval_interval_steps: 1
+eval_interval_steps: 10
 fft_size: 1024
 fmax: 7600
 fmin: 80
@@ -44,7 +44,7 @@ generator_params:
   upsample_params:
     upsample_scales: [4, 4, 4, 4]
   use_weight_norm: true
-generator_scheduler_params: {gamma: 0.5, step_size: 250}
+generator_scheduler_params: {gamma: 0.5, step_size: 100}
 global_gain_scale: 1.0
 hop_size: 256
 lambda_adv: 4.0
@@ -67,7 +67,7 @@ stft_loss_params:
   window: hann_window
 train_dumpdir: dump/train_nodev/norm
 train_feats_scp: null
-train_max_steps: 500
+train_max_steps: 200
 train_segments: null
 train_wav_scp: null
 trim_frame_size: 2048
@@ -75,6 +75,6 @@ trim_hop_size: 512
 trim_silence: true
 trim_threshold_in_db: 60
 verbose: 1
-version: 0.3.5
+version: 0.3.4
 win_length: null
 window: hann

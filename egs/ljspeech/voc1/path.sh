@@ -8,6 +8,7 @@ if [ -e "${PRJ_ROOT}/tools/venv/bin/activate" ]; then
     # shellcheck disable=SC1090
     . "${PRJ_ROOT}/tools/venv/bin/activate"
 fi
+export PATH="${PATH}:${PRJ_ROOT}/utils"
 
 # python related
 export OMP_NUM_THREADS=1
@@ -18,16 +19,5 @@ export MPL_BACKEND=Agg
 if ! command -v parallel-wavegan-train > /dev/null; then
     echo "Error: It seems setup is not finished." >&2
     echo "Error: Please setup your environment by following README.md" >&2
-    return 1
-fi
-if ! command -v jq > /dev/null; then
-    echo "Error: It seems jq is not installed." >&2
-    echo "Error: Please install via \`sudo apt-get install jq\`." >&2
-    echo "Error: If you do not have sudo, please download from https://stedolan.github.io/jq/download/." >&2
-    return 1
-fi
-if ! command -v yq > /dev/null; then
-    echo "Error: It seems yq is not installed." >&2
-    echo "Error: Please install via \`pip install yq\`." >&2
     return 1
 fi

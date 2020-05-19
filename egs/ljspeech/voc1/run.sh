@@ -28,7 +28,7 @@ checkpoint="" # checkpoint path to be used for decoding
               # (e.g. <path>/<to>/checkpoint-400000steps.pkl)
 
 # shellcheck disable=SC1091
-. utils/parse_options.sh || exit 1;
+. parse_options.sh || exit 1;
 
 train_set="train_nodev" # name of training data directory
 dev_set="dev"           # name of development data direcotry
@@ -50,7 +50,6 @@ if [ "${stage}" -le 0 ] && [ "${stop_stage}" -ge 0 ]; then
         "${download_dir}/LJSpeech-1.1" data
 fi
 
-stats_ext=$(grep -q "hdf5" <(yq ".format" "${conf}") && echo "h5" || echo "npy")
 if [ "${stage}" -le 1 ] && [ "${stop_stage}" -ge 1 ]; then
     echo "Stage 1: Feature extraction"
     # extract raw features
@@ -58,7 +57,7 @@ if [ "${stage}" -le 1 ] && [ "${stop_stage}" -ge 1 ]; then
     for name in "${train_set}" "${dev_set}" "${eval_set}"; do
     (
         [ ! -e "${dumpdir}/${name}/raw" ] && mkdir -p "${dumpdir}/${name}/raw"
-        echo "Feature extraction start. See the progress via ${dumpdir}/${name}/raw/preprocessing.*.log."
+         echo "Feature extraction start. See the progress via ${dumpdir}/${name}/raw/preprocessing.*.log."
         utils/make_subset_data.sh "data/${name}" "${n_jobs}" "${dumpdir}/${name}/raw"
         ${train_cmd} JOB=1:${n_jobs} "${dumpdir}/${name}/raw/preprocessing.JOB.log" \
             parallel-wavegan-preprocess \
@@ -74,7 +73,7 @@ if [ "${stage}" -le 1 ] && [ "${stop_stage}" -ge 1 ]; then
     [ "${i}" -gt 0 ] && echo "$0: ${i} background jobs are failed." && exit 1;
     echo "Successfully finished feature extraction."
 
-    #calculate statistics for normalization
+    # calculate statistics for normalization
     echo "Statistics computation start. See the progress via ${dumpdir}/${train_set}/compute_statistics.log."
     ${train_cmd} "${dumpdir}/${train_set}/compute_statistics.log" \
         parallel-wavegan-compute-statistics \
@@ -88,7 +87,7 @@ if [ "${stage}" -le 1 ] && [ "${stop_stage}" -ge 1 ]; then
     pids=()
     for name in "${train_set}" "${dev_set}" "${eval_set}"; do
     (
-        [ ! -e "${dumpdir}/${name}/norm" ] && mkdir -p "${dumpdir}/${name}/norm"
+         [ ! -e "${dumpdir}/${name}/norm" ] && mkdir -p "${dumpdir}/${name}/norm"
         echo "Nomalization start. See the progress via ${dumpdir}/${name}/norm/normalize.*.log."
         ${train_cmd} JOB=1:${n_jobs} "${dumpdir}/${name}/norm/normalize.JOB.log" \
             parallel-wavegan-normalize \
