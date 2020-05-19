@@ -63,7 +63,7 @@ if [ "${stage}" -le 1 ] && [ "${stop_stage}" -ge 1 ]; then
         ${train_cmd} JOB=1:${n_jobs} "${dumpdir}/${name}/raw/preprocessing.JOB.log" \
             parallel-wavegan-preprocess \
                 --config "${conf}" \
-                --scp "data/${name}/raw/wav.JOB.scp" \
+                --scp "${dumpdir}/${name}/raw/wav.JOB.scp" \
                 --dumpdir "${dumpdir}/${name}/raw/dump.JOB" \
                 --verbose "${verbose}"
         echo "Successfully finished feature extraction of ${name} set."
